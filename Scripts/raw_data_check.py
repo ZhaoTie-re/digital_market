@@ -1,5 +1,5 @@
-# # usr/bin/env python3
-# # %%
+# usr/bin/env python3
+# %%
 import argparse
 
 parser = argparse.ArgumentParser(description='Raw data checking.')

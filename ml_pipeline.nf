@@ -1,6 +1,7 @@
 params.input_dir = '/Users/tie_zhao/Desktop/digital_market/DataSrc'
 params.result_dir = '/Users/tie_zhao/Desktop/digital_market/Results'
 params.scriptPath = '/Users/tie_zhao/Desktop/digital_market/Scripts'
+params.feature_ignore = '/Users/tie_zhao/Desktop/digital_market/DataSrc/ignore_feature.txt'
 
 Channel
     .fromPath("${params.input_dir}/digital_marketing_campaign_dataset.csv")
@@ -28,3 +29,24 @@ process raw_data_check {
     """
 }
 
+process feature_engineering {
+
+    tag "${step_name}"
+    conda "/Users/tie_zhao/miniconda3/envs/digital_market"
+
+    publishDir "${params.result_dir}/02.feature_engineering", mode: 'symlink'
+
+    input:
+    tuple val(step_name), path(inpu1_h5) from feature_engineering_ch
+    path ignore_feature from params.feature_ignore
+
+    output:
+    tuple val('model_training'), file(output_h5) into model_training_ch
+    file '*.pdf'
+
+    script:
+    output_h5 = "feature_engineering.h5"
+    """
+    python ${params.scriptPath}/feature_engineer.py --h5Path ${inpu1_h5} --ignoreFeature ${ignore_feature}
+    """
+}
