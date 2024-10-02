@@ -3,7 +3,7 @@
 import argparse
 
 parser = argparse.ArgumentParser(description='Featur engineering.')
-parser.add_argument('--h5Path', type=str, help='Path to HDF5 output from raw_data_check channel.')
+parser.add_argument('--h5Path', type=str, help='Path to HDF5 output from channel.')
 parser.add_argument('--ignoreFeaturePath', type=str, help='Path to the file containing the features to be ignored.')
 
 args = parser.parse_args()

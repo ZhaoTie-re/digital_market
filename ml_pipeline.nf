@@ -41,12 +41,40 @@ process feature_engineering {
     path ignore_feature from params.feature_ignore
 
     output:
-    tuple val('model_training'), file(output_h5) into model_training_ch
+    tuple val('model_training'), file(output_h5) into model_training_ch1, model_training_ch2, model_training_ch3
     file '*.pdf'
 
     script:
     output_h5 = "feature_engineering.h5"
     """
     python ${params.scriptPath}/feature_engineer.py --h5Path ${inpu1_h5} --ignoreFeature ${ignore_feature}
+    """
+}
+
+model_training_ch1
+    .map { item -> [item[0], 'nn_mlp', item[1]] }
+    .set {model_training_nn_mlp_ch}
+
+process model_training_nn_mlp {
+
+    tag "${step_name}:${model_name}"
+    conda "/Users/tie_zhao/miniconda3/envs/digital_market"
+
+    publishDir "${params.result_dir}/03.model_training/${model_name}", mode: 'symlink'
+
+    input:
+    tuple val(step_name), val(model_name), path(input_h5) from model_training_nn_mlp_ch
+
+    output:
+    tuple val('model_validation'), file(best_result_json), file(h5_model) into model_evaluation_nn_mlp_ch
+    file(keras_model)
+    file '*.pdf'
+
+    script:
+    keras_model = 'best_' + model_name + '.keras'
+    h5_model = 'best_' + model_name + '.h5'
+    best_result_json = 'best_results_' + model_name + '.json'
+    """
+    python ${params.scriptPath}/establish_${model_name}.py --h5Path ${input_h5}
     """
 }
