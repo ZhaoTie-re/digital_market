@@ -65,7 +65,8 @@ process model_training_nn_mlp {
     tuple val(step_name), val(model_name), path(input_h5) from model_training_nn_mlp_ch
 
     output:
-    tuple val('model_validation'), file(best_result_json), file(h5_model) into model_evaluation_nn_mlp_ch
+    tuple val('model_validation'), file(h5_model) into model_evaluation_nn_mlp_ch
+    file(best_result_json) into summary_nn_mlp_ch
     file(keras_model)
     file '*.pdf'
 
@@ -93,7 +94,8 @@ process model_training_xgb_classifier {
     tuple val(step_name), val(model_name), path(input_h5) from model_training_xgb_classifier_ch
 
     output:
-    tuple val('model_validation'), file(best_result_json), file(pkl_model) into model_evaluation_xgb_classifier_ch
+    tuple val('model_validation'), file(pkl_model) into model_evaluation_xgb_classifier_ch
+    file(best_result_json) into summary_xgb_classifier_ch
     file(joblib_model)
     file '*.pdf'
 
