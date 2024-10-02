@@ -2,6 +2,7 @@ params.input_dir = '/Users/tie_zhao/Desktop/digital_market/DataSrc'
 params.result_dir = '/Users/tie_zhao/Desktop/digital_market/Results'
 params.scriptPath = '/Users/tie_zhao/Desktop/digital_market/Scripts'
 params.feature_ignore = '/Users/tie_zhao/Desktop/digital_market/DataSrc/ignore_feature.txt'
+params.targetCol = 'Conversion'
 
 Channel
     .fromPath("${params.input_dir}/digital_marketing_campaign_dataset.csv")
@@ -17,6 +18,7 @@ process raw_data_check {
 
     input:
     tuple val(step_name), path(csv) from raw_data_check_ch
+    val(target) from params.targetCol
 
     output:
     tuple val('feature_engineering'), file(h5) into feature_engineering_ch
@@ -25,7 +27,7 @@ process raw_data_check {
     script:
     h5 = "raw_data_check.h5"
     """
-    python ${params.scriptPath}/raw_data_check.py --csvPath ${csv}
+    python ${params.scriptPath}/raw_data_check.py --csvPath ${csv} --targetCol ${target}
     """
 }
 
@@ -42,6 +44,7 @@ process feature_engineering {
 
     output:
     tuple val('model_training'), file(output_h5) into model_training_ch1, model_training_ch2
+    file '*.pdf'
 
     script:
     output_h5 = "feature_engineering.h5"
@@ -65,7 +68,7 @@ process model_training_nn_mlp {
     tuple val(step_name), val(model_name), path(input_h5) from model_training_nn_mlp_ch
 
     output:
-    tuple val('model_validation'), file(h5_model) into model_evaluation_nn_mlp_ch
+    tuple val('model_validation'), val('nn_mlp'), file(h5_model) into model_validation_nn_mlp_ch
     file(best_result_json) into summary_nn_mlp_ch
     file(keras_model)
     file '*.pdf'
@@ -94,7 +97,7 @@ process model_training_xgb_classifier {
     tuple val(step_name), val(model_name), path(input_h5) from model_training_xgb_classifier_ch
 
     output:
-    tuple val('model_validation'), file(pkl_model) into model_evaluation_xgb_classifier_ch
+    tuple val('model_validation'), val('xgb_classifier'), file(pkl_model) into model_validation_xgb_classifier_ch
     file(best_result_json) into summary_xgb_classifier_ch
     file(joblib_model)
     file '*.pdf'

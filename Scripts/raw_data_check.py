@@ -4,6 +4,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='Raw data checking.')
 parser.add_argument('--csvPath', type=str, help='Path to the raw data file in CSV format.')
+parser.add_argument('--targetCol', type=str, help='Name of the target variable in the raw data.')
 
 args = parser.parse_args()
 
@@ -13,8 +14,10 @@ import pandas as pd
 data_src_path = args.csvPath
 data_src = pd.read_csv(data_src_path, index_col=0)
 
-predict_var = data_src.drop(['Conversion'], axis=1)
-target_var = data_src['Conversion']
+target_var_name = args.targetCol
+
+predict_var = data_src.drop([target_var_name], axis=1)
+target_var = data_src[target_var_name]
 
 # %% [markdown]
 # # Data exploration and visualization for different feature types.
