@@ -41,8 +41,7 @@ process feature_engineering {
     path ignore_feature from params.feature_ignore
 
     output:
-    tuple val('model_training'), file(output_h5) into model_training_ch1, model_training_ch2, model_training_ch3
-    file '*.pdf'
+    tuple val('model_training'), file(output_h5) into model_training_ch1, model_training_ch2
 
     script:
     output_h5 = "feature_engineering.h5"
@@ -78,3 +77,32 @@ process model_training_nn_mlp {
     python ${params.scriptPath}/establish_${model_name}.py --h5Path ${input_h5}
     """
 }
+
+model_training_ch2
+    .map { item -> [item[0], 'xgb_classifier', item[1]] }
+    .set {model_training_xgb_classifier_ch}
+
+process model_training_xgb_classifier { 
+
+    tag "${step_name}:${model_name}"
+    conda "/Users/tie_zhao/miniconda3/envs/digital_market"
+
+    publishDir "${params.result_dir}/03.model_training/${model_name}", mode: 'symlink'
+
+    input:
+    tuple val(step_name), val(model_name), path(input_h5) from model_training_xgb_classifier_ch
+
+    output:
+    tuple val('model_validation'), file(best_result_json), file(pkl_model) into model_evaluation_xgb_classifier_ch
+    file(joblib_model)
+    file '*.pdf'
+
+    script:
+    joblib_model = 'best_' + model_name + '.joblib'
+    pkl_model = 'best_' + model_name + '.pkl'
+    best_result_json = 'best_results_' + model_name + '.json'
+    """
+    python ${params.scriptPath}/establish_${model_name}.py --h5Path ${input_h5}
+    """
+}
+

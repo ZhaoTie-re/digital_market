@@ -1,8 +1,7 @@
 # usr/bin/env python3
-# %%
 import argparse
 
-parser = argparse.ArgumentParser(description='Multilayer Perceptron implementation.')
+parser = argparse.ArgumentParser(description='XGBClassifier implementation.')
 parser.add_argument('--h5Path', type=str, help='Path to HDF5 output from channel.')
 
 args = parser.parse_args()
@@ -20,60 +19,70 @@ with pd.HDFStore(file_path) as store:
 
 # %%
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.model_selection import GridSearchCV, KFold
-from scikeras.wrappers import KerasClassifier
-from tensorflow.keras.layers import Input
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.optimizers import Adam
-import json
+from xgboost import XGBClassifier
+from sklearn.metrics import f1_score
+from sklearn.model_selection import train_test_split
 
-X = X_train.values.astype('float32') 
+X = X_train.values.astype('float32')
 y = y_train.values.ravel().astype('int32')
 
-# Create neural network models (multilayer perceptron)
-def create_model(learning_rate=0.001):
-    model = Sequential()
-    model.add(Input(shape=(X.shape[1],))) # Input layer
-    model.add(Dense(32, activation='relu'))  # first hidden layer 32 neurons
-    model.add(Dense(16, activation='relu'))  # second hidden layer 16 neurons
-    model.add(Dense(1, activation='sigmoid'))  # Output layer, use sigmoid activation for binary classification
-    optimizer = Adam(learning_rate=learning_rate)
-    model.compile(loss='binary_crossentropy', optimizer=optimizer, metrics=['accuracy'])
-    return model
+# Crate XGBoost model
+def create_model(learning_rate=0.001, max_depth=3):
+    return XGBClassifier(
+        learning_rate=learning_rate,
+        max_depth=max_depth,
+        objective='binary:logistic',  # Use logistic regression for binary classification
+    )
 
-# Create a KerasClassifier
-model = KerasClassifier(model=create_model, epochs=50, verbose=0)
+# Create a XGBClassifier
+model = XGBClassifier(model=create_model)
 
-# Define the hyperparameters to search (batch size and learning rate only for this example, grid search)
+# Define the hyperparameters to search (learning rate and max depth)
 param_grid = {
-    'batch_size': [32, 64, 128], 
-    'model__learning_rate': [1e-4, 1e-3, 1e-2] 
+    'learning_rate': [1e-3, 1e-2, 1e-1], 
+    'max_depth': [3, 5, 7, 9, 11]
 }
 
-# use KFold cross-validation with 5 splits(5-fold cross-validation)
-kf = KFold(n_splits=5, shuffle=True, random_state=42)
+# Use KFold cross-validation with 5 splits (5-fold cross-validation)
+kf = KFold(n_splits=5, shuffle=True, random_state=42) # random_state for reproducibility
 
-# Create a GridSearchCV object to search for the best hyperparameters
-grid = GridSearchCV(estimator=model, param_grid=param_grid, cv=kf, scoring='f1', n_jobs=-1) # n_jobs=-1 to use all CPU cores (parallelize)
+# Create a GridSearchCV object to search for the best hyperparameters (F1 score)
+grid = GridSearchCV(estimator=model, param_grid=param_grid, cv=kf, scoring='f1', n_jobs=-1)
+
+# Fit the GridSearchCV object to the data
 grid_result = grid.fit(X, y)
 
 # %%
-import tensorflow as tf
-# import netron
+import pickle
+from joblib import dump
 
-# Get the best model    
-best_model = grid_result.best_estimator_.model()
+# Get the best model
+best_model = grid_result.best_estimator_
 
-# Save the best model in Keras format for later use
-model_path = 'best_nn_mlp.keras'
-model_path_h5 = 'best_nn_mlp.h5'
-tf.keras.models.save_model(best_model, model_path)
-tf.keras.models.save_model(best_model, model_path_h5)
+# Save the best model to a file using pickle
+with open('best_xgb_classifier.pkl', 'wb') as f:
+    pickle.dump(best_model, f)
 
-# # Visualize the best model using Netron
-# netron.start(model_path, browse=False)
+# Save the best model to a file using joblib
+dump(best_model, 'best_xgb_classifier.joblib')
+
+# %%
+import xgboost as xgb
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+
+# Get the best model
+best_model = grid_result.best_estimator_
+
+# Plot the first 10 trees
+with PdfPages('first_10_trees.pdf') as pdf:
+    for i in range(10): 
+        plt.style.use('default')
+        fig, ax = plt.subplots(figsize=(20, 8), dpi=300, tight_layout=True)
+        xgb.plot_tree(best_model, num_trees=i, ax=ax)
+        pdf.savefig(fig) 
+        plt.close(fig) 
 
 # %%
 import numpy as np
@@ -120,7 +129,7 @@ plt.title('')
 plt.grid(False)
 plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title='ROC statistics')
 plt.tight_layout()
-plt.savefig("roc_plot_nn_mlp.pdf", format='pdf')
+plt.savefig("roc_plot_xgb_classifier.pdf", format='pdf')
 plt.clf()
 # plt.show()
 
@@ -132,22 +141,21 @@ params = grid_result.cv_results_['params']
 df_f1 = pd.DataFrame(params)
 df_f1['score'] = scores
 
-# Plot the scores for each batch size and learning rate
-for learning_rate in df_f1['model__learning_rate'].unique():
-    subset = df_f1[df_f1['model__learning_rate'] == learning_rate]
-    plt.plot(subset['batch_size'], subset['score'], marker='o', label=f'learning_rate={learning_rate}')
+# Plot the scores for each max depth and learning rate
+for learning_rate in df_f1['learning_rate'].unique():
+    subset = df_f1[df_f1['learning_rate'] == learning_rate]
+    plt.plot(subset['max_depth'], subset['score'], marker='o', label=f'learning_rate={learning_rate}')
 
 plt.style.use('default')
-plt.xlabel('batch_size')
+plt.xlabel('max_depth')
 plt.ylabel('f1')
 plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title='learning_rate')
 plt.tight_layout()
-plt.savefig("test_f1_nn_mlp.pdf", format='pdf')
+plt.savefig("test_f1_xgb_classifier.pdf", format='pdf')
 plt.clf()
 # plt.show()
 
 # %%
-# Get the scores (neg_log_loss) for each parameter combination and convert them to a DataFrame
 grid_loss = GridSearchCV(estimator=model, param_grid=param_grid, cv=kf, scoring='neg_log_loss', n_jobs=-1)
 grid_result_loss = grid_loss.fit(X, y)
 
@@ -157,23 +165,24 @@ params = grid_result_loss.cv_results_['params']
 df_loss = pd.DataFrame(params)
 df_loss['loss'] = losses
 
-# Plot the scores for each batch size and learning rate
-for learning_rate in df_loss['model__learning_rate'].unique():
-    subset = df_loss[df_loss['model__learning_rate'] == learning_rate]
-    plt.plot(subset['batch_size'], subset['loss'], marker='o', label=f'learning_rate={learning_rate}')
+# Plot the scores for each max depth and learning rate
+for learning_rate in df_loss['learning_rate'].unique():
+    subset = df_loss[df_loss['learning_rate'] == learning_rate]
+    plt.plot(subset['max_depth'], subset['loss'], marker='o', label=f'learning_rate={learning_rate}')
 
 plt.style.use('default')
-plt.xlabel('batch_size')
+plt.xlabel('max_depth')
 plt.ylabel('neg_log_loss')
 plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title='learning_rate')
 plt.tight_layout()
-plt.savefig("test_loss_nn_mlp.pdf", format='pdf')
+plt.savefig("test_loss_xgb_classifier.pdf", format='pdf')
 plt.clf()
 # plt.show()
 
 # %%
-# Save the best parameters and score to a json file
-model_name = 'Multilayer Perceptron'
+import json
+
+model_name = 'XGBClassifier'
 best_params = grid_result.best_params_
 best_score = grid_result.best_score_ # this is the f1 score
 
@@ -183,5 +192,7 @@ results = {
     "best_f1": best_score
 }
 
-with open("best_results_nn_mlp.json", "w") as f:
+with open("best_results_xgb_classifier.json", "w") as f:
     json.dump(results, f)
+
+
