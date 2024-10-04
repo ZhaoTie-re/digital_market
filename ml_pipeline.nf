@@ -68,8 +68,8 @@ process model_training_nn_mlp {
     tuple val(step_name), val(model_name), path(input_h5) from model_training_nn_mlp_ch
 
     output:
-    tuple val('model_validation'), val('nn_mlp'), file(h5_model) into model_test_nn_mlp_ch
-    file(best_result_json) into summary_nn_mlp_ch
+    tuple val('summary'), file(best_result_json) into summary_nn_mlp_ch
+    file(h5_model)
     file(keras_model)
     file '*.pdf'
 
@@ -98,8 +98,8 @@ process model_training_xgb_classifier {
     tuple val(step_name), val(model_name), path(input_h5) from model_training_xgb_classifier_ch
 
     output:
-    tuple val('model_validation'), val('xgb_classifier'), file(pkl_model) into model_test_xgb_classifier_ch
-    file(best_result_json) into summary_xgb_classifier_ch
+    tuple val('summary'), file(best_result_json) into summary_xgb_classifier_ch
+    file(pkl_model)
     file(joblib_model)
     file '*.pdf'
 
@@ -112,4 +112,50 @@ process model_training_xgb_classifier {
     python ${params.scriptPath}/establish_${model_name}.py --h5Path copied_input.h5 --threshold 0.7
     """
 }
+
+summary_nn_mlp_ch.
+    join(summary_xgb_classifier_ch)
+    .set {summary_ch}
+
+process summary { 
+
+    tag "${step_name}"
+    conda "/Users/tie_zhao/miniconda3/envs/digital_market"
+
+    publishDir "${params.result_dir}/04.summary", mode: 'symlink'
+
+    input:
+    tuple val(step_name), path(json_1), path(json_2) from summary_ch
+
+    output:
+    file 'summary.json' into print_summary_ch
+
+    script:
+    """
+    jq -s '.' ${json_1} ${json_2} > summary.json
+    """
+}
+
+process printJson {
+
+    conda "/Users/tie_zhao/miniconda3/envs/digital_market"
+
+    input:
+    file(json) from print_summary_ch
+
+    output:
+    stdout into result_ch
+
+    script:
+    """
+    groovy -e "
+        import groovy.json.JsonOutput
+        def jsonSlurper = new groovy.json.JsonSlurper()
+        def object = jsonSlurper.parseText('''\$(cat $json)''')
+        println JsonOutput.prettyPrint(JsonOutput.toJson(object))
+    " | pygmentize -l json
+    """
+}
+
+result_ch.view()
 
