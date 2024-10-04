@@ -68,7 +68,7 @@ process model_training_nn_mlp {
     tuple val(step_name), val(model_name), path(input_h5) from model_training_nn_mlp_ch
 
     output:
-    tuple val('model_validation'), val('nn_mlp'), file(h5_model) into model_validation_nn_mlp_ch
+    tuple val('model_validation'), val('nn_mlp'), file(h5_model) into model_test_nn_mlp_ch
     file(best_result_json) into summary_nn_mlp_ch
     file(keras_model)
     file '*.pdf'
@@ -78,7 +78,8 @@ process model_training_nn_mlp {
     h5_model = 'best_' + model_name + '.h5'
     best_result_json = 'best_results_' + model_name + '.json'
     """
-    python ${params.scriptPath}/establish_${model_name}.py --h5Path ${input_h5}
+    cp ${input_h5} copied_input.h5
+    python ${params.scriptPath}/establish_${model_name}.py --h5Path copied_input.h5 --threshold 0.5
     """
 }
 
@@ -97,7 +98,7 @@ process model_training_xgb_classifier {
     tuple val(step_name), val(model_name), path(input_h5) from model_training_xgb_classifier_ch
 
     output:
-    tuple val('model_validation'), val('xgb_classifier'), file(pkl_model) into model_validation_xgb_classifier_ch
+    tuple val('model_validation'), val('xgb_classifier'), file(pkl_model) into model_test_xgb_classifier_ch
     file(best_result_json) into summary_xgb_classifier_ch
     file(joblib_model)
     file '*.pdf'
@@ -107,7 +108,8 @@ process model_training_xgb_classifier {
     pkl_model = 'best_' + model_name + '.pkl'
     best_result_json = 'best_results_' + model_name + '.json'
     """
-    python ${params.scriptPath}/establish_${model_name}.py --h5Path ${input_h5}
+    cp ${input_h5} copied_input.h5
+    python ${params.scriptPath}/establish_${model_name}.py --h5Path copied_input.h5 --threshold 0.7
     """
 }
 

@@ -3,6 +3,7 @@ import argparse
 
 parser = argparse.ArgumentParser(description='XGBClassifier implementation.')
 parser.add_argument('--h5Path', type=str, help='Path to HDF5 output from channel.')
+parser.add_argument('--threshold', type=float, default=0.5, help='Threshold value for binary classification.')
 
 args = parser.parse_args()
 
@@ -85,55 +86,6 @@ with PdfPages('first_10_trees.pdf') as pdf:
         plt.close(fig) 
 
 # %%
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc
-
-# Get the best model
-best_model = grid.best_estimator_
-roc_curves = []
-aucs = []
-
-# Get the fp, tp, and auc for each fold
-for train_index, test_index in kf.split(X):
-    X_train, X_test = X[train_index], X[test_index]
-    y_train, y_test = y[train_index], y[test_index]
-
-    best_model.fit(X_train, y_train)
-
-    y_pred = best_model.predict_proba(X_test)[:, 1]
-
-    fpr, tpr, _ = roc_curve(y_test, y_pred)
-    roc_curves.append((fpr, tpr))
-    aucs.append(auc(fpr, tpr))
-
-# Compute the mean ROC curve and AUC
-mean_fpr = np.linspace(0, 1, 100)
-mean_tpr = np.mean([np.interp(mean_fpr, fpr, tpr) for fpr, tpr in roc_curves], axis=0)
-std_tpr = np.std([np.interp(mean_fpr, fpr, tpr) for fpr, tpr in roc_curves], axis=0)
-
-# Compute the 95% confidence interval for the mean ROC curve
-tprs_upper = np.minimum(mean_tpr + 1.96*std_tpr, 1)
-tprs_lower = np.maximum(mean_tpr - 1.96*std_tpr, 0)
-
-# Plot the mean ROC curve with 95% confidence interval
-plt.style.use('default')
-plt.plot(mean_fpr, mean_tpr, color='darkorange', lw=2, label=r'Mean ROC (AUC = %0.2f)' % np.mean(aucs))
-plt.fill_between(mean_fpr, tprs_lower, tprs_upper, color='skyblue', alpha=.4, label=r'$\pm$ 1.96 std. dev. (95% CI)')
-plt.vlines(mean_fpr, tprs_lower, tprs_upper, color='skyblue', alpha=.4)
-plt.xlim([-0.05, 1.05])
-plt.ylim([-0.05, 1.05])
-plt.xlabel('False Positive Rate')
-plt.ylabel('True Positive Rate')
-plt.title('')
-plt.grid(False)
-plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title='ROC statistics')
-plt.tight_layout()
-plt.savefig("roc_plot_xgb_classifier.pdf", format='pdf')
-plt.clf()
-# plt.show()
-
-# %%
 # Get the scores (f1) for each parameter combination and convert them to a DataFrame
 scores = grid_result.cv_results_['mean_test_score']
 params = grid_result.cv_results_['params']
@@ -151,7 +103,7 @@ plt.xlabel('max_depth')
 plt.ylabel('f1')
 plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title='learning_rate')
 plt.tight_layout()
-plt.savefig("test_f1_xgb_classifier.pdf", format='pdf')
+plt.savefig("cv_f1_xgb_classifier.pdf", format='pdf')
 plt.clf()
 # plt.show()
 
@@ -175,24 +127,80 @@ plt.xlabel('max_depth')
 plt.ylabel('neg_log_loss')
 plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', title='learning_rate')
 plt.tight_layout()
-plt.savefig("test_loss_xgb_classifier.pdf", format='pdf')
+plt.savefig("cv_loss_xgb_classifier.pdf", format='pdf')
 plt.clf()
 # plt.show()
 
 # %%
 import json
+from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 
 model_name = 'XGBClassifier'
 best_params = grid_result.best_params_
 best_score = grid_result.best_score_ # this is the f1 score
 
+# Predict probabilities for the test set
+y_pred_proba = grid_result.best_estimator_.predict_proba(X_test)
+
+# Extract probabilities for the positive class (class 1)
+y_pred_proba_pos = y_pred_proba[:, 1]
+
+# Adjust threshold
+threshold = args.threshold
+y_pred = (y_pred_proba_pos >= threshold).astype(int)
+
+# Compute the metrics
+accuracy = accuracy_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+auc = roc_auc_score(y_test, y_pred)
+
 results = {
     "model": model_name,
     "best_params": best_params,
-    "best_f1": best_score
+    "best_cv_f1": best_score,
+    "best_test_f1": f1,
+    "best_test_accuracy": accuracy,
+    "best_test_precision": precision,
+    "best_test_recall": recall,
+    "best_test_auc": auc
 }
 
 with open("best_results_xgb_classifier.json", "w") as f:
     json.dump(results, f)
+    
+# %%
+from sklearn.metrics import confusion_matrix,  roc_curve, auc
+import seaborn as sns
+import matplotlib.pyplot as plt
 
+# Compute confusion matrix
+cm = confusion_matrix(y_test, y_pred)
 
+# Compute ROC curve and ROC area
+fpr, tpr, _ = roc_curve(y_test, y_pred_proba_pos)
+roc_auc = roc_auc_score(y_test, y_pred)
+
+# Create subplots
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 7))
+
+# Plot confusion matrix
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', annot_kws={"size": 16}, cbar=True, ax=ax1)
+ax1.set_title('Confusion Matrix', fontsize=20)
+ax1.set_xlabel('Predicted', fontsize=16)
+ax1.set_ylabel('Truth', fontsize=16)
+
+# Plot ROC curve
+ax2.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
+ax2.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+ax2.set_xlim([0.0, 1.0])
+ax2.set_ylim([0.0, 1.05])
+ax2.set_xlabel('False Positive Rate', fontsize=16)
+ax2.set_ylabel('True Positive Rate', fontsize=16)
+ax2.set_title('Receiver Operating Characteristic', fontsize=20)
+ax2.legend(loc="lower right")
+plt.tight_layout()
+plt.savefig("test_perform_xgb_classifier.pdf", format='pdf')
+plt.clf()
+# plt.show()
