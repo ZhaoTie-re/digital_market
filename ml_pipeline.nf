@@ -14,7 +14,7 @@ process raw_data_check {
     tag "${step_name}"
     conda "/Users/tie_zhao/miniconda3/envs/digital_market"
 
-    publishDir "${params.result_dir}/01.raw_data_check", mode: 'symlink'
+    publishDir "${params.result_dir}/01.raw_data_check", mode: 'copy'
 
     input:
     tuple val(step_name), path(csv) from raw_data_check_ch
@@ -36,7 +36,7 @@ process feature_engineering {
     tag "${step_name}"
     conda "/Users/tie_zhao/miniconda3/envs/digital_market"
 
-    publishDir "${params.result_dir}/02.feature_engineering", mode: 'symlink'
+    publishDir "${params.result_dir}/02.feature_engineering", mode: 'copy'
 
     input:
     tuple val(step_name), path(inpu1_h5) from feature_engineering_ch
@@ -62,7 +62,7 @@ process model_training_nn_mlp {
     tag "${step_name}:${model_name}"
     conda "/Users/tie_zhao/miniconda3/envs/digital_market"
 
-    publishDir "${params.result_dir}/03.model_training/${model_name}", mode: 'symlink'
+    publishDir "${params.result_dir}/03.model_training/${model_name}", mode: 'copy'
 
     input:
     tuple val(step_name), val(model_name), path(input_h5) from model_training_nn_mlp_ch
@@ -92,7 +92,7 @@ process model_training_xgb_classifier {
     tag "${step_name}:${model_name}"
     conda "/Users/tie_zhao/miniconda3/envs/digital_market"
 
-    publishDir "${params.result_dir}/03.model_training/${model_name}", mode: 'symlink'
+    publishDir "${params.result_dir}/03.model_training/${model_name}", mode: 'copy'
 
     input:
     tuple val(step_name), val(model_name), path(input_h5) from model_training_xgb_classifier_ch
@@ -122,7 +122,7 @@ process summary {
     tag "${step_name}"
     conda "/Users/tie_zhao/miniconda3/envs/digital_market"
 
-    publishDir "${params.result_dir}/04.summary", mode: 'symlink'
+    publishDir "${params.result_dir}/04.summary", mode: 'copy'
 
     input:
     tuple val(step_name), path(json_1), path(json_2) from summary_ch
