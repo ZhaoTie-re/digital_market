@@ -1,0 +1,1 @@
+{"model": "Multilayer Perceptron", "best_params": {"batch_size": 64, "model__learning_rate": 0.001}, "best_cv_f1": 0.8676335897361789, "best_test_f1": 0.88, "best_test_accuracy": 0.80125, "best_test_precision": 0.9342948717948718, "best_test_recall": 0.8316690442225392, "best_test_auc": 0.7590094958140607}

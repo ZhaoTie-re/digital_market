@@ -1,0 +1,28 @@
+[
+  {
+    "model": "Multilayer Perceptron",
+    "best_params": {
+      "batch_size": 64,
+      "model__learning_rate": 0.001
+    },
+    "best_cv_f1": 0.8676335897361789,
+    "best_test_f1": 0.88,
+    "best_test_accuracy": 0.80125,
+    "best_test_precision": 0.9342948717948718,
+    "best_test_recall": 0.8316690442225392,
+    "best_test_auc": 0.7590094958140607
+  },
+  {
+    "model": "XGBClassifier",
+    "best_params": {
+      "learning_rate": 0.1,
+      "max_depth": 3
+    },
+    "best_cv_f1": 0.9572996685647273,
+    "best_test_f1": 0.9607635206786851,
+    "best_test_accuracy": 0.930625,
+    "best_test_precision": 0.9523475823405746,
+    "best_test_recall": 0.9693295292439372,
+    "best_test_auc": 0.8129475929047969
+  }
+]
